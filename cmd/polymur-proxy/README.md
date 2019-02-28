@@ -20,12 +20,14 @@ Requires Go 1.6
 
 <pre>
 Usage of ./polymur-proxy:
-  -api-key string
-        polymur gateway API key
-  -cert string
-        TLS Certificate
+  -client-cert string
+        Path to TLS Certificate
+  -client-key string
+        Path to TLS Private Key
   -console-out
         Dump output to console
+  -protocols string
+        Comma-delimited list of protocols to listen with (default "tcp,udp")
   -gateway string
         polymur gateway address
   -listen-addr string
@@ -43,11 +45,13 @@ Usage of ./polymur-proxy:
 # Example Test Setup
 
 ### Setup Polymur-gateway
+
 See the Polymur-gateway [readme](https://github.com/jamiealquiza/polymur/tree/master/cmd/polymur-gateway)
 
 ### Run Polymur-proxy
+
 <pre>
-$ ./polymur-proxy -cert="/path/to/cert.pem" -gateway="https://localhost:443" -api-key="test-key" -stat-addr="localhost:2021"
+$ ./polymur-proxy -client-cert="/path/to/cert.pem" -gateway="https://localhost:443" -client-key="/path/to/key.pem" -stat-addr="localhost:2021"
 2016/07/29 14:26:53 ::: Polymur-proxy :::
 2016/07/29 14:26:53 Pinging gateway https://localhost:443
 2016/07/29 14:26:53 Connection to gateway https://localhost:443 successful
@@ -59,17 +63,21 @@ Runstats started: localhost:2020
 </pre>
 
 Polymur-gateway authorizes key
+
 <pre>
 2016/07/29 14:26:53 [client 127.0.0.1:50352] key for test-user is valid
 </pre>
 
 ### Push Test Data
+
 Send fake data point to Polymur-proxy
+
 <pre>
 $ echo "some.test.data 1337 $(date +%s)" | nc localhost 2003
 </pre>
 
 Polymur-proxy receives and forwards data
+
 <pre>
 2016/07/29 14:30:54 [worker #2] sending batch (1 data points)
 2016/07/29 14:30:54 [worker #2] [gateway] Batch Received
@@ -77,10 +85,9 @@ Polymur-proxy receives and forwards data
 </pre>
 
 Polymur-gateway validates key and handles request (writes to console since the gateway was started with the `-console-out` flag)
+
 <pre>
 2016/07/29 14:30:54 [client 127.0.0.1:50352] Recieved batch from from test-user
 some.test.data 1337 1469802654
 2016/07/29 14:30:55 Last 5.00s: Received 1 data points | Avg: 0.20/sec.
 </pre>
-
-

@@ -43,7 +43,7 @@ type TCPListenerConfig struct {
 
 // TCPListener Listens for messages.
 func TCPListener(config *TCPListenerConfig) {
-	log.Printf("Metrics listener started: %s\n", config.Addr)
+	log.Printf("Metrics listener started: [TCP] %s\n", config.Addr)
 	server, err := net.Listen("tcp", config.Addr)
 	if err != nil {
 		log.Fatalf("Listener error: %s\n", err)

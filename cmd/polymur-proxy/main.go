@@ -23,8 +23,11 @@ package main
 
 import (
 	"log"
+	"net"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/chrissnell/polymur/listener"
@@ -44,6 +47,7 @@ var (
 		queuecap   int
 		workers    int
 		console    bool
+		protocols  string
 	}
 
 	sigChan = make(chan os.Signal)
@@ -55,6 +59,7 @@ func init() {
 	flag.StringVar(&options.CACert, "ca-cert", "", "CA Root Certificate - if server is using a cert that wasn't signed by a root CA that we recognize automatically")
 	flag.StringVar(&options.gateway, "gateway", "", "polymur gateway address")
 	flag.StringVar(&options.addr, "listen-addr", "0.0.0.0:2003", "Polymur-proxy listen address")
+	flag.StringVar(&options.protocols, "protocols", "tcp,udp", "Polymur-proxy listen protocols separated by comma.")
 	flag.StringVar(&options.statAddr, "stat-addr", "localhost:2020", "runstats listen address")
 	flag.IntVar(&options.queuecap, "queue-cap", 32768, "In-flight message queue capacity")
 	flag.IntVar(&options.workers, "workers", 3, "HTTP output workers")
@@ -105,14 +110,52 @@ func main() {
 	sentCntr := &statstracker.Stats{}
 	go statstracker.StatsTracker(nil, sentCntr)
 
-	// TCP Listener.
-	go listener.TCPListener(&listener.TCPListenerConfig{
-		Addr:          options.addr,
-		IncomingQueue: incomingQueue,
-		FlushTimeout:  15,
-		FlushSize:     5000,
-		Stats:         sentCntr,
-	})
+	listeningProtocols := strings.Split(options.protocols, ",")
+
+	var listenTCP bool
+	var listenUDP bool
+	listenTCP = false
+	listenUDP = false
+	for _, element := range listeningProtocols {
+		switch element {
+		case "udp":
+			listenUDP = true
+		case "tcp":
+			listenTCP = true
+		default:
+			log.Fatalln("Protocol must be one of {tcp, udp}")
+		}
+	}
+
+	if listenTCP {
+		go listener.TCPListener(&listener.TCPListenerConfig{
+			Addr:          options.addr,
+			IncomingQueue: incomingQueue,
+			FlushTimeout:  15,
+			FlushSize:     5000,
+			Stats:         sentCntr,
+		})
+	}
+
+	if listenUDP {
+		host, port, err := net.SplitHostPort(options.addr)
+		if err != nil {
+			log.Fatalln("Invalid host in addr")
+		}
+
+		portInt, err := strconv.Atoi(port)
+		if err != nil {
+			log.Fatalln("Invalid port in addr")
+		}
+		go listener.UDPListener(&listener.UDPListenerConfig{
+			IP:            host,
+			Port:          portInt,
+			IncomingQueue: incomingQueue,
+			FlushTimeout:  15,
+			FlushSize:     5000,
+			Stats:         sentCntr,
+		})
+	}
 
 	runControl()
 }
